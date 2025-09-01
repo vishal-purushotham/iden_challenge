@@ -1,0 +1,12 @@
+# Session files
+session.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+.env
