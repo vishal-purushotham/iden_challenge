@@ -43,52 +43,50 @@ async def login_and_save_session(page: Page):
 
 
 async def navigate_to_product_catalog(page: Page):
-    """
-    REWRITTEN AGAIN: Reverting to .click() as .hover() is not effective.
-    """
+    """Navigates the complex menu to the product table and loads the data."""
     print("Navigating complex menu to Product Catalog...")
-    
-    # Step 1: Click the main "Menu" button to open the sidebar
     await page.click(SELECTORS['menu_button'])
-    
-    # Step 2: Click through the nested menu items to expand them
-    print("   -> Clicking 'Data Tools'...")
     await page.click(SELECTORS['data_tools_menu'])
-    
-    print("   -> Clicking 'Inventory Management'...")
     await page.click(SELECTORS['inventory_management_submenu'])
-    
-    # Step 3: Click the final menu item
-    print("   -> Clicking 'Product Catalog'...")
     await page.click(SELECTORS['product_catalog_link'])
-    
-    # Step 4: Click the "Load Product Data" button
     print("On Product Catalog page, clicking 'Load Product Data'...")
     await page.wait_for_selector(SELECTORS['load_data_button'], state="visible")
     await page.click(SELECTORS['load_data_button'])
-    
-    # Step 5: Wait for the table to appear
     await page.wait_for_selector(SELECTORS['product_table_container'], state="visible")
     print("Product data table is loaded.")
 
 
 async def trigger_infinite_scroll(page: Page):
-    """Scrolls the page to load all dynamic content."""
+    """
+    REWRITTEN: Scrolls by hovering over the table and using the mouse wheel,
+    which is the most reliable method for custom scroll containers.
+    """
     print("Beginning data extraction via infinite scroll...")
     previous_product_count = -1
     
+    # Locate the scrollable table container once
+    table_container = page.locator(SELECTORS['product_table_container'])
+
     while previous_product_count < len(all_products_data):
         previous_product_count = len(all_products_data)
-        print(f"   -> Currently have {len(all_products_data)} products. Scrolling down...")
-        await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+        print(f"   -> Currently have {len(all_products_data)} of 1920 products. Scrolling...")
+
+        # Step 1: Hover over the table to ensure it has mouse focus
+        await table_container.hover()
+        
+        # Step 2: Use the mouse wheel to scroll down, simulating a user action.
+        # A large deltaY value ensures a significant scroll.
+        await page.mouse.wheel(0, 15000)
         
         try:
+            # Wait for any new network requests to complete after scrolling
             await page.wait_for_load_state("networkidle", timeout=5000)
         except TimeoutError:
-            print("   -> Network idle timeout reached, likely at the end of the list.")
+            print("   -> Network idle timeout reached. This is expected at the end of the list.")
             pass
         
-        await page.wait_for_timeout(1000)
+        # A static wait to ensure the UI has time to update
+        await page.wait_for_timeout(1500)
 
     print("Finished scrolling. All data captured.")
 
@@ -125,7 +123,6 @@ async def main():
 
         page.on("response", handle_api_response)
 
-        # This function now uses clicks, which should work.
         await navigate_to_product_catalog(page)
         
         print("Capturing data from initial page load...")
